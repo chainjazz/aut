@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="batengacert" basedir=".">
+	<property name="confdir" value=""></property>
+	<property name="certtype" value=""></property><property name="openssl" value="\usr\opt\ossl\bin\openssl"></property>
+	<property name="rootdir" value="root-ca"></property>	
+	<property name="subdir" value="sub-ca"></property>
+	<property name="pp" value=""></property>
+	<property name="verbose" value="-verbose"></property>
+	<macrodef name="mkskel">
+		<attribute name="bdir"></attribute>
+		<sequential>
+			<mkdir dir="@{bdir}/certs"></mkdir>
+			<mkdir dir="@{bdir}/db"></mkdir>
+			<mkdir dir="@{bdir}/private"></mkdir>
+			<touch file="@{bdir}/db/index"></touch>
+			<exec executable="${openssl}" output="@{bdir}/db/serial">
+				<arg value="rand"></arg>
+				<arg value="-hex"></arg>
+				<arg value="16"></arg></exec>
+			<echo message="1001" file="@{bdir}/db/crlnumber"></echo></sequential></macrodef>
+	<macrodef name="mkroot">
+		<attribute name="issuer"></attribute><attribute name="subject"></attribute>
+		
+		<sequential>				
+			<local name="selfsign"></local><exec executable="${openssl}" dir="@{subject}" timeout="30000" failonerror="true">
+				<arg value="req"></arg>
+				
+				<arg value="-new"></arg>
+				<arg value="${verbose}"></arg><arg value="-passout"></arg>
+				<arg value="pass:${pp}"></arg><arg value="-config"></arg>
+				<arg value="../@{subject}.conf"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{subject}.csr"></arg>
+				<arg value="-keyout"></arg>
+				<arg value="private/@{subject}.key"></arg>
+			</exec><condition property="selfsign" value="-selfsign" else="-utf8">
+			<equals arg1="@{issuer}" arg2="@{subject}" forcestring="true"></equals></condition><exec executable="${openssl}" timeout="30000" dir="@{subject}">
+				<arg value="ca"></arg>
+				<arg value="-batch"></arg>
+
+				<arg value="${selfsign}"></arg>
+				<arg value="${verbose}"></arg>
+				<arg value="-passin"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-keyfile"></arg>
+				<arg value="../@{issuer}/private/@{issuer}.key"></arg>
+				<arg value="-cert"></arg><arg value="../@{issuer}/@{issuer}.crt"></arg><arg value="-config"></arg>
+				<arg value="../@{issuer}.conf"></arg>
+				<arg value="-in"></arg>
+				<arg value="@{subject}.csr"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{subject}.crt"></arg>
+				<arg value="-extensions"></arg>
+				<arg value="@{subject}_ext"></arg>
+			</exec>
+			</sequential></macrodef>
+			
+		<macrodef name="mkocsp">
+		<attribute name="issuer"></attribute>
+		<attribute name="subject"></attribute><sequential>				
+			<exec executable="${openssl}" dir="@{issuer}" timeout="30000" failonerror="true">
+				<arg value="req"></arg>
+				<arg value="${verbose}"></arg>
+				<arg value="-new"></arg>
+				<arg value="-passout"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-newkey"></arg>
+				<arg value="rsa:2048"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{issuer}-ocsp.csr"></arg>
+				<arg value="-subj"></arg><arg value='"/C=RS/O=batenga/CN=OCSP Root Responder"'></arg><arg value="-keyout"></arg>
+				<arg value="private/@{issuer}-ocsp.key"></arg>
+			</exec><exec executable="${openssl}" timeout="30000" dir="@{issuer}">
+				<arg value="ca"></arg>
+				<arg value="-batch"></arg>
+				<arg value="${verbose}"></arg>				
+				
+				<arg value="-passin"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-config"></arg>
+				<arg value="../@{issuer}.conf"></arg>
+				<arg value="-in"></arg><arg value="@{issuer}-ocsp.csr"></arg><arg value="-out"></arg><arg value="@{issuer}-ocsp.crt"></arg>
+								
+				<arg value="-days"></arg><arg value="30"></arg><arg value="-extensions"></arg>
+				<arg value="ocsp_ext"></arg>
+			</exec></sequential></macrodef><macrodef name="ocspresponder"><attribute name="issuer"></attribute><attribute name="subject"></attribute><sequential><exec executable="${openssl}" dir="@{issuer}" timeout="30000" failonerror="true">
+				<arg value="ocsp"></arg>
+				<arg value="-port"></arg>
+				<arg value="9080"></arg>
+				<arg value=""></arg><arg value=""></arg><arg value="-index"></arg>
+				<arg value="db/index"></arg>
+				<arg value="-rsigner"></arg>
+				<arg value="@{issuer}-ocsp.crt"></arg>
+				<arg value="-rkey"></arg><arg value="private/@{issuer}-ocsp.key"></arg><arg value="-CA"></arg>
+				<arg value="@{issuer}.crt"></arg><arg value="-text"></arg>
+			</exec></sequential></macrodef><macrodef name="mkcrl">
+		<attribute name="bdir"></attribute>
+		<sequential>
+			<exec executable="${openssl}" timeout="30000" dir="@{bdir}">
+				<arg value="ca"></arg>
+				<arg value="-batch"></arg>
+				<arg value="${verbose}"></arg>				
+				<arg value="-gencrl"></arg>
+				<arg value="-passin"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-config"></arg>
+				<arg value="../@{bdir}.conf"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{bdir}.crl"></arg>
+			</exec></sequential></macrodef><macrodef name="mkcert">
+		<attribute name="issuer"></attribute>
+		<attribute name="subject"></attribute>
+		<sequential><exec executable="${openssl}" dir="@{issuer}" timeout="30000" failonerror="true">
+				<arg value="req"></arg>
+				<arg value="${verbose}"></arg>
+				<arg value="-new"></arg>
+				<arg value="-passout"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-newkey"></arg>
+				<arg value="rsa:2048"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{issuer}_${certtype}.csr"></arg>
+				<arg value="-config"></arg><arg value='../@{issuer}_${certtype}.conf'></arg><arg value="-keyout"></arg>
+				<arg value="private/@{issuer}_${certtype}.key"></arg>
+			</exec><exec executable="${openssl}" timeout="30000" dir="@{issuer}">
+				<arg value="ca"></arg>
+				<arg value="-batch"></arg>
+				<arg value="${verbose}"></arg>
+				<arg value="-passin"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-config"></arg>
+				<arg value="../@{issuer}.conf"></arg>
+				<arg value="-in"></arg>
+				<arg value="@{subject}.csr"></arg>				
+				<arg value="-out"></arg><arg value="@{subject}.crt"></arg><arg value="-extensions"></arg>
+				<arg value="@{subject}_ext"></arg>
+			</exec></sequential></macrodef><macrodef name="mkpfx">
+		<attribute name="issuer"></attribute><attribute name="subject"></attribute>
+		
+		<sequential><exec executable="${openssl}" timeout="30000" dir="@{issuer}">
+				<arg value="pkcs12"></arg>
+
+				<arg value="-export"></arg>
+				<arg value=""></arg><arg value="-passout"></arg>
+				<arg value="pass:${pp}"></arg>
+				<arg value="-passin"></arg><arg value="pass:${pp}"></arg><arg value="-inkey"></arg>
+				<arg value="private/@{subject}.key"></arg>
+				<arg value="-certfile"></arg><arg value="@{issuer}.crt"></arg><arg value="-name"></arg>
+				<arg value='"fullcert_${certtype}"'></arg>
+				<arg value="-in"></arg>
+				<arg value="@{subject}.crt"></arg>
+				<arg value="-out"></arg>
+				<arg value="@{subject}.p12"></arg>
+			</exec>
+			</sequential></macrodef><target name="init">
+		<delete dir="${roodir}" quiet="true">
+			<fileset dir="${rootdir}" includes="**/*"></fileset></delete>
+		<delete dir="${subdir}" quiet="true"><fileset dir="${subdir}" includes="**/*"></fileset></delete>
+		<mkdir dir="${rootdir}"></mkdir>
+		<mkdir dir="${subdir}"></mkdir>		
+		<mkskel bdir="${rootdir}"></mkskel>
+		<mkskel bdir="${subdir}"></mkskel>
+		</target>
+	<target name="genroot" depends="">
+		<mkroot issuer="root-ca" subject="root-ca"></mkroot></target>
+	<target name="genocsp" depends="genroot">
+		<mkocsp issuer="root-ca" subject="root-ca"></mkocsp></target>
+	<target name="gencrl" depends="genocsp">
+		<mkcrl bdir="${rootdir}"></mkcrl>
+	</target>
+	<target name="genpfx" depends="">
+		<mkpfx issuer="sub-ca" subject="sub-ca_${certtype}"></mkpfx></target><target name="gensub" depends="gencrl">
+		<mkroot issuer="root-ca" subject="sub-ca"></mkroot></target><target name="gencert" depends="">
+	<mkcert issuer="sub-ca" subject="sub-ca_${certtype}"></mkcert></target>
+	
+
+</project>
