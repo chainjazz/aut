@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="shootils" basedir=".">
+
+<property name="IPREFIX" value="\usr\local"></property>
+<property name="IINTERPRETER" value="\Windows\system32\WindowsPowerShell\v1.0\powershell.exe"></property>
+<property name="RNAME" value=""></property>
+<macrodef name="macro_SUDO">
+	<attribute name="what"></attribute>
+	<attribute name="how"></attribute>
+	<sequential>
+		<!--  echoxml -->
+		<exec
+			executable="${IINTERPRETER}">
+			
+			
+			<arg value="-Command"></arg>
+			<arg value="Start-Process"></arg>
+			<arg value="'@{what}'"></arg>
+			<arg value="-ArgumentList"></arg>
+			<arg value="@{how}"></arg>
+			<arg value="-Verb"></arg>
+			<arg value="RunAs"></arg>	
+		</exec>
+		<!--   /echoxml -->
+	</sequential>
+</macrodef>
+
+<macrodef name="macro_INSTALL_RESOURCE">
+	<sequential>
+		<macro_SUDO 
+			what="cmd"
+			how="'/c COPY /Y ${RNAME} ${IPREFIX}\bin\'">			
+		</macro_SUDO>
+	</sequential>
+</macrodef>
+
+<target name="install_resource">
+<!-- echoxml -->
+	  <macro_INSTALL_RESOURCE></macro_INSTALL_RESOURCE>
+<!--  /echoxml -->
+</target>
+
+
+</project>

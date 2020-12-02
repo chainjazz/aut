@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="AUT" basedir=".">
+<property name="in_SRC" value=""></property>
+<property name="in_PATH" value=""></property>
+<property name="cmd_COPY" value="\usr\opt\putty\pscp"></property>
+<property name="cmd_UNTAR" value="\usr\opt\putty\plink"></property>
+<property name="cmd_TAR" value="\usr\opt\7zx\7za"></property>
+<property name="tbd_OUTS" value=""></property>
+
+<macrodef name="macro_BAREINIT">
+<attribute name="host"></attribute>
+<attribute name="execcmd" default=""></attribute>
+<attribute name="port"></attribute>
+<sequential>
+	<exec executable="${cmd_UNTAR}">
+		<arg value="-P"></arg>
+		<arg value="@{port}"></arg>
+		<arg value=""></arg>
+		<arg value="-agent"></arg>
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+		<arg value="@{host}"></arg>		
+		<arg value="ls -d /srv/git/${in_SRC}.git || git --bare init /srv/git/${in_SRC}.git"></arg>		
+	</exec>
+</sequential>
+</macrodef>
+
+<macrodef name="macro_ARCHIVE">
+<sequential>
+	<exec executable="git" outputproperty="tbd_OUT">
+		
+		<arg value="describe"></arg>
+		<arg value="master"></arg>
+		</exec>
+	<echo message="CREATING GIT ARCHIVE OUT OF ${in_PATH}"></echo>
+	<exec executable="git">		
+		<arg value="archive"></arg>
+		<arg value="--format=tar"></arg>
+		<arg value="--worktree-attributes"></arg>
+		<arg value="--output=${in_SRC}_${tbd_OUT}.tar"></arg>
+		<arg value="HEAD:${in_PATH}/"></arg>
+		</exec>
+</sequential>
+</macrodef>
+	
+	
+<macrodef name="macro_UPLOAD">
+<attribute name="host"></attribute>
+<attribute name="target"></attribute>
+<attribute name="port"></attribute>
+<attribute name="infname"></attribute>
+<sequential>
+	<echo message=" > input: @{infname}"></echo>
+	<echo message=" > put at @{host}"></echo>
+	<exec
+		executable="${cmd_COPY}"
+		inputstring="y">
+		<arg
+			value="-P"></arg>
+		<arg 
+			value="@{port}"></arg>
+		<arg
+			value="-q"></arg>
+		<arg
+			value="-agent"></arg>
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+		<arg
+			value="@{infname}"></arg>
+		<arg
+			value="@{host}:@{target}"></arg>
+		
+		</exec>
+</sequential>
+</macrodef>
+
+	
+<macrodef name="macro_TAR">
+	<!-- might be tar, might be 7zip... -->
+	<sequential>
+		<delete 
+					file="C:/Users/dkr85djo/${in_SRC}_new.tar"
+					failonerror="false"></delete>
+		<echo message=" > diffing ${in_PATH}"></echo>
+		<exec executable="${cmd_TAR}">
+			<arg
+				value="u"></arg>
+			<arg 
+				value="C:/Users/dkr85djo/${in_SRC}_old.tar"></arg>
+			<arg
+				value="-bso0"></arg>
+			<arg
+				value="-up1q0r2x1y2z0w2!C:/Users/dkr85djo/${in_SRC}_new.tar"></arg> 
+			<arg
+				value=""></arg>
+			<arg
+				value="${in_PATH}"></arg>
+		</exec>
+	</sequential>
+</macrodef>
+	
+<macrodef name="macro_DEPLOY">
+<attribute name="host"></attribute>
+<attribute name="execcmd" default=""></attribute>
+<attribute name="port"></attribute>
+<attribute name="infname"/>
+<sequential>
+	<echo message=" > deploy at @{host}"></echo>
+	<exec
+		executable="${cmd_UNTAR}">
+		<arg
+			value="-P"></arg>
+		<arg 
+			value="@{port}"></arg>
+		<arg 
+			value=""></arg>
+		<arg
+			value="-agent"></arg>
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+<!-- 		<arg  -->
+<!-- 			value="-hostkey"></arg> -->
+<!-- 		<arg -->
+<!-- 			value="8f:b2:16:6a:74:ef:32:00:9d:5c:b1:5f:ed:bd:59:92"></arg> -->
+		<arg
+			value="@{host}"></arg>		
+		<arg
+			value="cd"></arg>
+		<arg value="&amp;&amp;"></arg>
+		<arg value="(tar -x -f ./@{infname})"></arg>	
+		<arg value="&amp;&amp;"></arg>
+		<arg value="(rm ./@{infname})"></arg>
+	</exec>
+	
+
+</sequential>
+</macrodef>
+	
+	
+<target name="git_archive">
+	<macro_ARCHIVE></macro_ARCHIVE>
+</target>
+	
+
+<target name="sync_scp">
+	<!-- intended for local use -->
+	
+	<echo message="Diff taring..."></echo>
+	<macro_TAR></macro_TAR>
+	
+	
+	<macro_UPLOAD 
+			host="mac79maj@dellpc.local"
+			port="22"
+			target="/home/mac79maj/"
+			infname="C:/Users/dkr85djo/${in_SRC}_new.tar"/>
+	<macro_DEPLOY
+			host="mac79maj@dellpc.local"
+			port="22"
+			infname="${in_SRC}_new.tar"/>
+	
+	
+	
+	</target>
+	
+<target name="scp_upload" depends="git_archive">
+	<echo message="uploading to batenga"></echo>
+	<macro_UPLOAD 
+		host="mac79maj@batenga.ddns.net"
+		port="22"
+		target="/home/mac79maj/"
+		infname="${in_SRC}_${tbd_OUT}.tar">
+	</macro_UPLOAD>
+	<echo message="uploading to s2-batenga"></echo>
+	<macro_UPLOAD 
+		host="mac79maj@s2-batenga.ddns.net"
+		port="40800"
+		target="/Users/mac79maj/"
+		infname="${in_SRC}_${tbd_OUT}.tar">
+	</macro_UPLOAD>
+	
+</target>
+
+<target name="ssh_decompress" depends="scp_upload">
+	<echo message="untar at batenga"></echo>
+	<macro_DEPLOY
+		host="mac79maj@batenga.ddns.net"
+		port="22"
+		infname="${in_SRC}_${tbd_OUT}.tar"></macro_DEPLOY>
+	<echo message="untar at s2-batenga"></echo>
+	<macro_DEPLOY
+		host="mac79maj@s2-batenga.ddns.net"
+		port="40800"
+		infname="${in_SRC}_${tbd_OUT}.tar"></macro_DEPLOY>
+	
+</target>
+
+<target name="git_bareinit" depends="">
+	<echo message="init bare at batenga"></echo>
+	<macro_BAREINIT
+		host="mac79maj@batenga.ddns.net"
+		port="22"></macro_BAREINIT>
+<!-- 	<echo message="untar at s2-batenga"></echo> -->
+<!-- 	<macro_DEPLOY -->
+<!-- 		host="mac79maj@s2-batenga.ddns.net" -->
+<!-- 		port="40800"></macro_DEPLOY> -->
+	
+</target>
+<target name="cleanie" depends="git_archive">
+	<delete 
+		file="${in_SRC}_${tbd_OUT}.tar"
+		failonerror="false"></delete>
+	
+</target>
+
+</project>
